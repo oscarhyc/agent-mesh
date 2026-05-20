@@ -94,14 +94,15 @@ function onRegistryMessage(data: Buffer) {
     const raw = data.toString();
     const msg = JSON.parse(raw) as JsonRpcRequest | JsonRpcResponse;
     if ("method" in msg && msg.method === "ping") {
-      console.log(`[Worker] ping received, id=${msg.id}`);
+      console.log(`[Worker] ping received, id=${msg.id}, ws readyState=${registryWs.readyState}`);
       const pong: JsonRpcResponse = {
         jsonrpc: "2.0",
         result: { pong: true },
         id: msg.id,
       };
+      console.log(`[Worker] sending pong, ws buffered=${registryWs.bufferedAmount}, state=${registryWs.readyState}`);
       registryWs.send(JSON.stringify(pong));
-    }
+      console.log(`[Worker] pong sent`);
   } catch (err) {
     console.error("[Worker] bad registry message:", err);
   }
