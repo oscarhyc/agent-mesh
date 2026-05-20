@@ -94,17 +94,26 @@ function onRegistryMessage(data: Buffer) {
     const raw = data.toString();
     const msg = JSON.parse(raw) as JsonRpcRequest | JsonRpcResponse;
     if ("method" in msg && msg.method === "ping") {
-      console.log(`[Worker] ping received, id=${msg.id}, ws readyState=${registryWs.readyState}`);
-      const pong: JsonRpcResponse = {
-        jsonrpc: "2.0",
-        result: { pong: true },
-        id: msg.id,
-      };
-      console.log(`[Worker] sending pong, ws buffered=${registryWs.bufferedAmount}, state=${registryWs.readyState}`);
-      registryWs.send(JSON.stringify(pong));
-      console.log(`[Worker] pong sent`);
+      try {
+        console.log(`[Worker] ping received, id=${msg.id}, ws readyState=${registryWs.readyState}`);
+        const pong: JsonRpcResponse = {
+          jsonrpc: "2.0",
+          result: { pong: true },
+          id: msg.id,
+        };
+        console.log(`[Worker] sending pong, buffered=${registryWs.bufferedAmount}, state=${registryWs.readyState}`);
+        if (registryWs.readyState === WebSocket.OPEN) {
+          registryWs.send(JSON.stringify(pong));
+          console.log(`[Worker] pong sent`);
+        } else {
+          console.log(`[Worker] skipped pong — ws state=${registryWs.readyState}`);
+        }
+      } catch (err) {
+        console.error(`[Worker] pong send failed: ${err}`);
+      }
+    }
   } catch (err) {
-    console.error("[Worker] bad registry message:", err);
+    console.error(`[Worker] bad registry message: ${err}`);
   }
 }
 
