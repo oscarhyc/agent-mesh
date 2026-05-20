@@ -51,7 +51,13 @@ wss.on("connection", (ws: WebSocket, req) => {
 
 function send(ws: WebSocket, msg: JsonRpcResponse): void {
   if (ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify(msg));
+    try {
+      ws.send(JSON.stringify(msg));
+    } catch (err) {
+      console.error(`[Registry] send error on client_id=${(ws as any).clientId}: ${err}`);
+    }
+  } else {
+    console.log(`[Registry] send skipped — ws closed, client_id=${(ws as any).clientId}, state=${ws.readyState}`);
   }
 }
 
