@@ -33,8 +33,12 @@ wss.on("connection", (ws: WebSocket, req) => {
   console.log(`[Registry] wsToAgent map size=${wsToAgent.size}`);
 
   ws.on("message", (data) => {
+    const raw = data.toString();
+    let method = "unknown";
+    try { const m = JSON.parse(raw); method = m.method ?? "response"; } catch {}
+    console.log(`[Registry] MSG from client_id=${(ws as any).clientId} method=${method} len=${raw.length}`);
     try {
-      const msg = JSON.parse(data.toString()) as JsonRpcRequest;
+      const msg = JSON.parse(raw) as JsonRpcRequest;
       handleMessage(ws, msg);
     } catch (err) {
       console.error("[Registry] bad message:", err);
