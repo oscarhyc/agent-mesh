@@ -89,8 +89,10 @@ function onRegistryOpen() {
 
 function onRegistryMessage(data: Buffer) {
   try {
-    const msg = JSON.parse(data.toString()) as JsonRpcRequest | JsonRpcResponse;
+    const raw = data.toString();
+    const msg = JSON.parse(raw) as JsonRpcRequest | JsonRpcResponse;
     if ("method" in msg && msg.method === "ping") {
+      console.log(`[Worker] ping received, id=${msg.id}`);
       const pong: JsonRpcResponse = {
         jsonrpc: "2.0",
         result: { pong: true },

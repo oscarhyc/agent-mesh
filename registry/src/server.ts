@@ -79,6 +79,7 @@ function handleMessage(ws: WebSocket, msg: JsonRpcRequest): void {
       const agentId = wsToAgent.get(ws);
       if (agentId) {
         registry.refreshHeartbeat(agentId);
+        console.log(`[Registry] pong from ${agentId}`);
       }
       send(ws, { jsonrpc: "2.0", result: { ok: true }, id: msg.id });
       break;
