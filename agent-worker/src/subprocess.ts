@@ -12,12 +12,11 @@ export class AgentSubprocess {
 
   start(): void {
     if (this.proc) return;
-    // Use bash -lc to allocate a proper TTY for the agent process.
-    // This avoids the asyncio stdin conflict when Node.js pipes stdin.
-    // Use bash -lc to allocate a proper TTY for the agent process.
-    // This avoids the asyncio stdin conflict when Node.js pipes stdin.
-    const cmd = "/bin/bash";
-    const cmdArgs = ["-lc", `"${this.command}" ${this.args.map(a => `"${a}"`).join(" ")}`];
+    // Use setsid to run the agent in its own new session — no controlling TTY,
+    // no job control signals, no SIGTTIN/SIGTTOU. This solves the Python asyncio
+    // stdin conflict that occurs when bash runs in a PTY under Node.js.
+    const cmd = "/usr/bin/setsid";
+    const cmdArgs = [this.command, ...this.args];
     this.proc = spawn(cmd, cmdArgs, {
       stdio: ["ignore", "pipe", "pipe", "pipe"],
       env: { ...process.env },
