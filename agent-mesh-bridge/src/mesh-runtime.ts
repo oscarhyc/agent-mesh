@@ -60,7 +60,7 @@ export class MeshRuntime {
 
   private async respawn(taskId: string, agentType: string): Promise<MeshSession | null> {
     console.log(`[MeshRuntime] Respawning task=${taskId}`);
-    return this.spawn(agentType, taskId);
+    return this.spawn(agentType, taskId); // spawn(agentType, taskId) — correct arg order
   }
 
   send(taskId: string, msg: AcpMessage): void {

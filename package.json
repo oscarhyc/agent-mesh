@@ -1,0 +1,21 @@
+{
+  "name": "agent-mesh",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "shared",
+    "registry",
+    "agent-worker",
+    "agent-mesh-bridge",
+    "mesh-tester"
+  ],
+  "scripts": {
+    "dev:registry": "npm run start --workspace=@agent-mesh/registry",
+    "dev:worker": "npm run start --workspace=@agent-mesh/agent-worker",
+    "dev:bridge": "npm run dev --workspace=@agent-mesh/agent-mesh-bridge",
+    "dev:tester": "npm run start --workspace=@agent-mesh/mesh-tester",
+    "build": "npm run build --workspaces",
+    "test": "npm run test --workspaces"
+  }
+}
