@@ -159,9 +159,24 @@ const httpServer = createServer((req, res) => {
   }
 });
 
-function handleResponse(_ws: WebSocket, _msg: JsonRpcResponse): void {
-  // Responses (like pongs) are matched to requests by id in a real system.
-  // For pong responses we just log them here for now.
+function handleResponse(ws: WebSocket, msg: JsonRpcResponse): void {
+  // Handle async responses. For now, detect pong responses and refresh heartbeat.
+  if (msg.result && typeof msg.result === "object") {
+    const r = msg.result as Record<string, unknown>;
+    if (r.pong === true) {
+      const agentId = wsToAgent.get(ws);
+      const cid = (ws as any).clientId ?? "unknown";
+      if (agentId) {
+        registry.refreshHeartbeat(agentId);
+        console.log(`[Registry] heartbeat refreshed for ${agentId} (from pong response client_id=${cid})`);
+      } else {
+        console.log(`[Registry] pong from unmapped client_id=${cid} — not in wsToAgent`);
+      }
+      return;
+    }
+  }
+  // Ignore other responses (e.g. discover results, result acks)
+  console.log(`[Registry] unhandled response: ${JSON.stringify(msg.result ?? msg.error ?? {}}`).slice(0, 100));
 }
 
 httpServer.listen(HTTP_PORT, () => {
