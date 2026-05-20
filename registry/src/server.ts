@@ -20,6 +20,7 @@ const HTTP_PORT = Number(process.env.REGISTRY_HTTP_PORT ?? 9001);
 
 const registry = new Registry();
 const clients = new Set<WebSocket>();
+const wsToAgent = new Map<WebSocket, string>();
 
 // --- WebSocket server ---
 const wss = new WebSocketServer({ port: PORT });
@@ -37,8 +38,8 @@ wss.on("connection", (ws: WebSocket, req) => {
     }
   });
 
-  ws.on("close", () => { clients.delete(ws); });
-  ws.on("error", (err) => { console.error("[Registry] WS error:", err); clients.delete(ws); });
+  ws.on("close", () => { clients.delete(ws); wsToAgent.delete(ws); });
+  ws.on("error", (err) => { console.error("[Registry] WS error:", err); clients.delete(ws); wsToAgent.delete(ws); });
 });
 
 function send(ws: WebSocket, msg: JsonRpcResponse): void {
@@ -54,13 +55,17 @@ function handleMessage(ws: WebSocket, msg: JsonRpcRequest): void {
       const info = registry.register(params);
       registry.recordTaskStart(params.agentId); // set load=1
       registry.recordTaskDone(params.agentId);   // back to 0 — means registered and ready
+      wsToAgent.set(ws, params.agentId);
       send(ws, { jsonrpc: "2.0", result: info, id: msg.id });
       break;
     }
     case "deregister": {
       const params = msg.params as DeregisterParams;
-      // Workers send their own agentId in params.reason or we find by remoteAddress
-      // For now: accept the message and acknowledge
+      const agentId = wsToAgent.get(ws);
+      if (agentId) {
+        registry.deregister(agentId, params.reason);
+        wsToAgent.delete(ws);
+      }
       send(ws, { jsonrpc: "2.0", result: { deregistered: true }, id: msg.id });
       break;
     }
@@ -71,8 +76,10 @@ function handleMessage(ws: WebSocket, msg: JsonRpcRequest): void {
       break;
     }
     case "pong": {
-      // Extract agentId from somewhere — workers should include their agentId in pong
-      // For now just acknowledge
+      const agentId = wsToAgent.get(ws);
+      if (agentId) {
+        registry.refreshHeartbeat(agentId);
+      }
       send(ws, { jsonrpc: "2.0", result: { ok: true }, id: msg.id });
       break;
     }
