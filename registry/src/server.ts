@@ -35,11 +35,25 @@ wss.on("connection", (ws: WebSocket, req) => {
   ws.on("message", (data) => {
     const raw = data.toString();
     let method = "unknown";
-    try { const m = JSON.parse(raw); method = m.method ?? "response"; } catch {}
-    console.log(`[Registry] MSG from client_id=${(ws as any).clientId} method=${method} len=${raw.length}`);
+    let isRequest = false;
     try {
-      const msg = JSON.parse(raw) as JsonRpcRequest;
-      handleMessage(ws, msg);
+      const parsed = JSON.parse(raw);
+      // JsonRpcRequest has "method" field, JsonRpcResponse has "result" or "error"
+      if (parsed.method !== undefined) {
+        isRequest = true;
+        method = String(parsed.method);
+      } else {
+        method = parsed.result ? "response" : "error";
+      }
+    } catch {}
+    console.log(`[Registry] MSG from client_id=${(ws as any).clientId} isRequest=${isRequest} method=${method} len=${raw.length}`);
+    try {
+      const msg = JSON.parse(raw);
+      if (isRequest) {
+        handleRequest(ws, msg as JsonRpcRequest);
+      } else {
+        handleResponse(ws, msg as JsonRpcResponse);
+      }
     } catch (err) {
       console.error("[Registry] bad message:", err);
     }
@@ -61,7 +75,7 @@ function send(ws: WebSocket, msg: JsonRpcResponse): void {
   }
 }
 
-function handleMessage(ws: WebSocket, msg: JsonRpcRequest): void {
+function handleRequest(ws: WebSocket, msg: JsonRpcRequest): void {
   switch (msg.method) {
     case "register": {
       const params = msg.params as WorkerRegisterParams;
@@ -144,6 +158,11 @@ const httpServer = createServer((req, res) => {
     res.end("Not found");
   }
 });
+
+function handleResponse(_ws: WebSocket, _msg: JsonRpcResponse): void {
+  // Responses (like pongs) are matched to requests by id in a real system.
+  // For pong responses we just log them here for now.
+}
 
 httpServer.listen(HTTP_PORT, () => {
   console.log(`[Registry] HTTP dashboard: http://localhost:${HTTP_PORT}/`);
