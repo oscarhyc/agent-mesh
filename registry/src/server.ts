@@ -26,8 +26,11 @@ const wsToAgent = new Map<WebSocket, string>();
 const wss = new WebSocketServer({ port: PORT });
 wss.on("connection", (ws: WebSocket, req) => {
   const ip = req.socket.remoteAddress ?? "unknown";
-  console.log(`[Registry] WS connection from ${ip}`);
+  const clientId = Math.floor(Math.random() * 999999);
+  console.log(`[Registry] WS connect from ${ip}, id=${clientId}, total=${clients.size + 1}`);
   clients.add(ws);
+  (ws as any).clientId = clientId;
+  console.log(`[Registry] wsToAgent map size=${wsToAgent.size}`);
 
   ws.on("message", (data) => {
     try {
@@ -78,10 +81,13 @@ function handleMessage(ws: WebSocket, msg: JsonRpcRequest): void {
     }
     case "pong": {
       const agentId = wsToAgent.get(ws);
-      console.log(`[Registry] pong from ws=${wsToAgent.has(ws) ? wsToAgent.get(ws) : "UNKNOWN"} (clients=${clients.size})`);
+      const cid = (ws as any).clientId ?? "unknown";
+      console.log(`[Registry] pong from client_id=${cid} ws=${wsToAgent.has(ws) ? wsToAgent.get(ws) : "UNMAPPED"} (clients=${clients.size})`);
       if (agentId) {
         registry.refreshHeartbeat(agentId);
-        console.log(`[Registry] pong from ${agentId} — heartbeat refreshed`);
+        console.log(`[Registry] heartbeat refreshed for ${agentId}`);
+      } else {
+        console.log(`[Registry] pong from unmapped client — not in wsToAgent (size=${wsToAgent.size})`);
       }
       send(ws, { jsonrpc: "2.0", result: { ok: true }, id: msg.id });
       break;
