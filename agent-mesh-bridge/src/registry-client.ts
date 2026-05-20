@@ -59,5 +59,6 @@ export class RegistryClient {
   close(): void {
     this.ws?.close();
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    this.pending.clear();
   }
 }

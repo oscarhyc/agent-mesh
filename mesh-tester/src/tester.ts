@@ -83,9 +83,9 @@ Commands:
         try {
           const workerWs = new WebSocket(`ws://${agent.host}:${agent.port}`);
           await new Promise<void>((res, rej) => {
-            workerWs.on("open", () => res());
-            workerWs.on("error", rej);
-            setTimeout(rej, 3000);
+            const t = setTimeout(() => { workerWs.close(); rej(new Error("timeout")); }, 3000);
+            workerWs.on("open", () => { clearTimeout(t); res(); });
+            workerWs.on("error", (err) => { clearTimeout(t); workerWs.close(); rej(err); });
           });
           const latency = Date.now() - start;
           console.log(`  ✅ ${agent.agentId} @ ${agent.host}:${agent.port} — latency: ${latency}ms`);
@@ -125,13 +125,14 @@ Commands:
       const workerWs = new WebSocket(`ws://${agent.host}:${agent.port}`);
       await new Promise<void>((res, rej) => { workerWs.on("open", () => res()); workerWs.on("error", rej); });
       workerWs.send(JSON.stringify({ type: "task", taskId, prompt, sessionKey: "test-session" }));
-      const result = await new Promise<string>((resolve) => {
-        workerWs.on("message", (data) => {
+      const msgHandler = (data: Buffer) => {
           const msg = JSON.parse(data.toString());
-          if (msg.final) resolve(msg.final);
+          if (msg.final) { workerWs.off("message", msgHandler); resolve(msg.final); }
+        };
+        workerWs.on("message", msgHandler);
+        const result = await new Promise<string>((resolve) => {
+          setTimeout(() => { workerWs.off("message", msgHandler); resolve("timeout"); }, 30_000);
         });
-        setTimeout(() => resolve("timeout"), 30_000);
-      });
       console.log(`Result: ${result}`);
       workerWs.close();
       break;
