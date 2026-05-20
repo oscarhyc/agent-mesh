@@ -38,7 +38,7 @@ wss.on("connection", (ws: WebSocket, req) => {
     }
   });
 
-  ws.on("close", () => { clients.delete(ws); wsToAgent.delete(ws); });
+  ws.on("close", () => { console.log(`[Registry] WS closed, removing agent=${wsToAgent.get(ws)}`); clients.delete(ws); wsToAgent.delete(ws); });
   ws.on("error", (err) => { console.error("[Registry] WS error:", err); clients.delete(ws); wsToAgent.delete(ws); });
 });
 
@@ -56,6 +56,7 @@ function handleMessage(ws: WebSocket, msg: JsonRpcRequest): void {
       registry.recordTaskStart(params.agentId); // set load=1
       registry.recordTaskDone(params.agentId);   // back to 0 — means registered and ready
       wsToAgent.set(ws, params.agentId);
+      console.log(`[Registry] wsToAgent mapped ws=${ws} -> agentId=${params.agentId} (total ${wsToAgent.size})`);
       send(ws, { jsonrpc: "2.0", result: info, id: msg.id });
       break;
     }
@@ -77,9 +78,10 @@ function handleMessage(ws: WebSocket, msg: JsonRpcRequest): void {
     }
     case "pong": {
       const agentId = wsToAgent.get(ws);
+      console.log(`[Registry] pong from ws=${wsToAgent.has(ws) ? wsToAgent.get(ws) : "UNKNOWN"} (clients=${clients.size})`);
       if (agentId) {
         registry.refreshHeartbeat(agentId);
-        console.log(`[Registry] pong from ${agentId}`);
+        console.log(`[Registry] pong from ${agentId} — heartbeat refreshed`);
       }
       send(ws, { jsonrpc: "2.0", result: { ok: true }, id: msg.id });
       break;
