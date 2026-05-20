@@ -12,15 +12,28 @@ export class AgentSubprocess {
 
   start(): void {
     if (this.proc) return;
-    // Use setsid to run the agent in its own new session — no controlling TTY,
-    // no job control signals, no SIGTTIN/SIGTTOU. This solves the Python asyncio
-    // stdin conflict that occurs when bash runs in a PTY under Node.js.
-    const cmd = "/usr/bin/setsid";
-    const cmdArgs = [this.command, ...this.args];
-    this.proc = spawn(cmd, cmdArgs, {
-      stdio: ["ignore", "pipe", "pipe", "pipe"],
-      env: { ...process.env },
-    });
+
+    // Cross-platform: setsid only exists on Linux, not macOS.
+    // Linux: use setsid to fully detach from controlling TTY.
+    // macOS: use nohup + bash background to achieve same effect.
+    const isLinux = process.platform === "linux";
+
+    if (isLinux) {
+      // setsid creates a new session with no controlling terminal —
+      // prevents SIGTTIN/SIGTTOU when Python asyncio reads stdin in a PTY.
+      const cmd = "/usr/bin/setsid";
+      const cmdArgs = [this.command, ...this.args];
+      this.proc = spawn(cmd, cmdArgs, {
+        stdio: ["ignore", "pipe", "pipe", "pipe"],
+        env: { ...process.env },
+      });
+    } else {
+      // macOS: nohup + background bash, detached so it survives the shell
+      this.proc = spawn("/usr/bin/nohup",
+        ["bash", "-c", `"${this.command}" ${this.args.join(" ")} &`],
+        { stdio: ["ignore", "pipe", "pipe", "pipe"], env: { ...process.env }, detached: true }
+      );
+    }
 
     this.proc.stdout?.on("data", (chunk: Buffer) => {
       this.messageBuffer += chunk.toString();

@@ -52,8 +52,10 @@ function createSubprocess(): AgentSubprocess {
 }
 
 // --- WebSocket server (bridge connects directly here) ---
-const workerWss = new WebSocketServer({ port: WORKER_PORT });
-console.log(`[Worker] WebSocket server listening on port ${WORKER_PORT}`);
+// Use host 0.0.0.0 to listen on all interfaces (works on both Linux and macOS).
+// Linux defaults to localhost-only if not specified; macOS is more permissive.
+const workerWss = new WebSocketServer({ host: "0.0.0.0", port: WORKER_PORT });
+console.log(`[Worker] WebSocket server listening on ${WORKER_PORT}`);
 
 workerWss.on("connection", (ws: WebSocket) => {
   console.log(`[Worker] Bridge connected from ${ws.remoteAddress}`);
