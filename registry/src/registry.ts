@@ -50,6 +50,10 @@ export class Registry {
       .filter(a => a.status !== "offline")
       .filter(a => {
         if (criteria.agentType && a.capabilities.agentType !== criteria.agentType) return false;
+        if (criteria.skills && criteria.skills.length > 0) {
+          const hasAllSkills = criteria.skills.every(skill => a.capabilities.skills?.includes(skill));
+          if (!hasAllSkills) return false;
+        }
         return true;
       })
       .sort((a, b) => a.load - b.load); // lowest load first

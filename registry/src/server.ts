@@ -84,7 +84,9 @@ function handleMessage(ws: WebSocket, msg: JsonRpcRequest): void {
       break;
     }
     case "result": {
-      // Task result reporting — acknowledge
+      // Task result reporting — decrement agent load
+      const agentId = wsToAgent.get(ws);
+      if (agentId) registry.recordTaskDone(agentId);
       send(ws, { jsonrpc: "2.0", result: { received: true }, id: msg.id });
       break;
     }
