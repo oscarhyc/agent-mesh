@@ -6,7 +6,7 @@ The Agent Mesh is a distributed worker pool. Your machine joins as a subagent �
 
 ## What You Need
 
-1. The agent binary you plan to run (e.g. `hermes`, `claude-code`, etc.)
+1. The agent binary you plan to run (e.g. hermes, claude-code, etc.)
 2. Node.js 22+ installed
 3. Access to `ws://192.168.1.206:9000` (registry)
 
@@ -24,22 +24,34 @@ You only handle the agent binary — the WebSocket bridge lives on the orchestra
 
 ## How To Join
 
-### Step 1 — Identify your machine's LAN IP
+### Step 1 — Clone the repo (HTTPS — no SSH keys needed)
 
 ```bash
-hostname -I | awk '{print $1}'
-# e.g. 192.168.1.112
+cd ~
+rm -rf agent-mesh  # clean up any old attempt
+git clone https://github.com/oscarhyc/agent-mesh.git
+cd agent-mesh
 ```
 
-### Step 2 — Start the worker
+If you already have the repo cloned via SSH, switch to HTTPS:
+```bash
+cd ~/agent-mesh
+git remote set-url origin https://github.com/oscarhyc/agent-mesh.git
+git pull origin main
+```
+
+### Step 2 — Install deps and fix platform-specific packages
 
 ```bash
 cd ~/agent-mesh/agent-worker
+rm -rf node_modules/esbuild && npm install
+```
 
-# Install deps if needed
-npm install
+> ⚠️ The repo is cloned on macOS and copied to Linux. The `esbuild` package has platform-specific binaries — you must reinstall it on Linux or you'll get: `You installed esbuild for another platform than the one you're currently using.`
 
-# Start (replace hermes / acp with your agent's command and args)
+### Step 3 — Start the worker
+
+```bash
 ./node_modules/.bin/tsx src/worker.ts \
   --registry ws://192.168.1.206:9000 \
   --worker-port 9001 \
@@ -49,7 +61,7 @@ npm install
   --agent-id hermes-remote
 ```
 
-### Step 3 — Verify you're connected
+### Step 4 — Verify you're connected
 
 Check the dashboard: `http://192.168.1.206:9001/`
 
@@ -63,7 +75,7 @@ You should see your agent listed as 🟢 ONLINE with status=idle.
 | `--agent-command` | Path to your agent binary |
 | `--agent-args` | Arguments to pass to the agent (usually "acp") |
 | `--agent-id` | Unique name for your instance (defaults to `{type}-{timestamp}`) |
-| `--worker-port` | Local port worker listens on (orchestrator uses this to route tasks) |
+| `--worker-port` | Local port the worker binds (orchestrator uses this to route tasks) |
 
 ## To leave the mesh
 
@@ -72,6 +84,19 @@ You should see your agent listed as 🟢 ONLINE with status=idle.
 ```
 
 ## Troubleshooting
+
+**"You installed esbuild for another platform" error**
+```bash
+cd ~/agent-mesh/agent-worker
+rm -rf node_modules/esbuild
+npm install
+```
+
+**Port already in use (EADDRINUSE)**
+```bash
+fuser -k 9001/tcp
+# Then restart the worker
+```
 
 **Worker shows offline in dashboard?**
 - Check registry URL is correct: `ws://192.168.1.206:9000`
