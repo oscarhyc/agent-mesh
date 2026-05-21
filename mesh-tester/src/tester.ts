@@ -125,14 +125,14 @@ Commands:
       const workerWs = new WebSocket(`ws://${agent.host}:${agent.port}`);
       await new Promise<void>((res, rej) => { workerWs.on("open", () => res()); workerWs.on("error", rej); });
       workerWs.send(JSON.stringify({ type: "task", taskId, prompt, sessionKey: "test-session" }));
-      const msgHandler = (data: Buffer) => {
+      const result = await new Promise<string>((resolve) => {
+        const msgHandler = (data: Buffer) => {
           const msg = JSON.parse(data.toString());
           if (msg.final) { workerWs.off("message", msgHandler); resolve(msg.final); }
         };
         workerWs.on("message", msgHandler);
-        const result = await new Promise<string>((resolve) => {
-          setTimeout(() => { workerWs.off("message", msgHandler); resolve("timeout"); }, 30_000);
-        });
+        setTimeout(() => { workerWs.off("message", msgHandler); resolve("timeout"); }, 30_000);
+      });
       console.log(`Result: ${result}`);
       workerWs.close();
       break;

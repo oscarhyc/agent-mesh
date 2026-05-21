@@ -64,6 +64,10 @@ workerWss.on("connection", (ws: WebSocket) => {
   bridges.set(ws, bridge);
   bridge.start();
 
+  ws.on("message", (data) => {
+    console.log(`[Worker] WS message from client: ${data.toString().slice(0, 100)}`);
+  });
+
   ws.on("close", () => { bridges.delete(ws); });
 });
 

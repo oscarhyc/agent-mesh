@@ -4,6 +4,8 @@ import type { AcpMessage } from "@agent-mesh/shared/src/protocol.js";
 export class AgentSubprocess {
   private proc: ChildProcess | null = null;
   private messageBuffer = "";
+  public onMessage: (msg: AcpMessage) => void = () => {};
+  public onExit: (code: number | null, signal: string | null) => void = () => {};
 
   constructor(
     private command: string,
@@ -28,11 +30,11 @@ export class AgentSubprocess {
         env: { ...process.env },
       });
     } else {
-      // macOS: nohup + background bash, detached so it survives the shell
-      this.proc = spawn("/usr/bin/nohup",
-        ["bash", "-c", `"${this.command}" ${this.args.join(" ")} &`],
-        { stdio: ["ignore", "pipe", "pipe", "pipe"], env: { ...process.env }, detached: true }
-      );
+      // macOS: spawn directly with stdin connected (no nohup/bash wrapper that breaks pipe)
+      this.proc = spawn(this.command, this.args, {
+        stdio: ["pipe", "pipe", "pipe"],
+        env: { ...process.env },
+      });
     }
 
     this.proc.stdout?.on("data", (chunk: Buffer) => {
@@ -70,7 +72,9 @@ export class AgentSubprocess {
       console.error("[Worker] subprocess not running, cannot send message");
       return;
     }
-    this.proc.stdin.write(JSON.stringify(msg) + "\n");
+    const data = JSON.stringify(msg) + "\n";
+    const written = this.proc.stdin.write(data);
+    console.log(`[Worker] stdin.write(${written}): ${data.slice(0, 80)}`);
   }
 
   kill(): void {

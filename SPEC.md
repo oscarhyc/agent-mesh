@@ -1,7 +1,7 @@
 # Agent Mesh — Distributed ACP Agent Pool
 
 ## Status
-Draft — for review before implementation.
+Live — live delegation test passed 2026-05-21.
 
 ---
 
@@ -180,10 +180,12 @@ agents: Map<agentId, {
 
 **Purpose:** Per-machine process that wraps an ACP agent binary (Hermes, Claude Code, etc.) and bridges it to WebSocket.
 
-**Usage on each worker machine:**
+> ⚠️ **Architecture note:** The worker's WebSocket server (port :9001) lives on the **orchestrator/mesh host only**. Subagents do NOT run a WebSocket service — the orchestrator-side bridge handles all WS routing. A subagent machine needs only the agent binary; it does not need to expose any port.
+
+**Usage on each worker machine (subagent host):**
 ```bash
 node agent-worker.js \
-  --registry ws://192.168.1.100:9000 \
+  --registry ws://<registry-host>:9000 \
   --agent-type hermes \
   --agent-command "hermes" \
   --agent-args "acp" \
@@ -191,20 +193,20 @@ node agent-worker.js \
 ```
 
 **Behavior:**
-1. Connects to Registry WebSocket on `--worker-port`
+1. Connects to Registry WebSocket on startup
 2. Registers with capabilities (agent type, skills, max concurrent sessions)
-3. Accepts task messages from Registry or Bridge
+3. Accepts task dispatch messages from the WebSocket bridge (orchestrator side)
 4. Spawns agent subprocess (`--agent-command --agent-args`)
 5. Pipes ACP JSON-RPC between WebSocket and agent subprocess stdio
-6. Streams results back via WebSocket
+6. Streams results back via WebSocket to the orchestrator
 7. On SIGTERM: graceful deregister + subprocess kill
 
-**Concurrency:** If `--max-concurrent N` is set and the underlying agent doesn't support multiplexing, worker queues tasks and processes them sequentially. Default: 1.
+**Concurrency:** Default 1 task at a time. If `--max-concurrent N` is set, worker queues tasks sequentially.
 
 **Agent subprocess lifecycle:**
-- Spawned on first task
-- Kept alive between tasks (configurable idle timeout)
-- Killed on: worker shutdown, agent crash, or Registry `deregister`
+- Spawned on first task, kept alive between tasks (configurable idle timeout)
+- Killed on: worker shutdown, agent crash, or `deregister`
+- **⚠️ Subprocess stdin — macOS vs Linux:** On macOS, use direct `spawn(command, args, { stdio: ["pipe", "pipe", "pipe"] })`. Do NOT use `nohup bash -c "command &"` with `detached: true` — that closes stdin and makes `stdin.write()` silently fail. On Linux, use `setsid` to detach from controlling TTY (avoids SIGTTIN/SIGTTOU for Python asyncio).
 
 ### 4.3 Mesh Bridge (`agent-mesh-bridge/`)
 
@@ -490,15 +492,15 @@ agent-mesh/
 
 ## 12. Technology
 
-| Layer | Language | Key Libraries |
-|-------|----------|---------------|
-| Registry | TypeScript | `ws` (WebSocket), `tsx` (runner) |
-| Agent Worker | TypeScript | `ws`, `child_process`, `tsx` |
-| Mesh Bridge | TypeScript | `ws`, hooks into OpenClaw plugin system |
-| Mesh Tester | TypeScript | `ws`, `tsx` |
-| Shared | TypeScript | — |
+| Layer | Technology | Notes |
+|-------|------------|-------|
+| Registry | TypeScript + Node.js `ws` | Plain WebSocket. HTTP dashboard on same port. |
+| Agent Worker | TypeScript + Node.js `ws` + `child_process` | `setsid` on Linux; direct spawn on macOS. |
+| Mesh Bridge | TypeScript | OpenClaw ACPX plugin. Queries registry, connects direct to worker WS. |
+| Mesh Tester | TypeScript + Node.js `ws` | CLI diagnostic tool. |
+| Shared | TypeScript | Protocol types only. No runtime deps. |
 
-Node.js 22+ on all components. No database, no Redis — registry is in-memory state only.
+Node.js 22+. Registry is in-memory (no DB, no Redis).
 
 ---
 

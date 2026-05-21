@@ -176,7 +176,8 @@ function handleResponse(ws: WebSocket, msg: JsonRpcResponse): void {
     }
   }
   // Ignore other responses (e.g. discover results, result acks)
-  console.log(`[Registry] unhandled response: ${JSON.stringify(msg.result ?? msg.error ?? {}}`).slice(0, 100));
+  const resp = msg.result ?? msg.error ?? {};
+  console.log(`[Registry] unhandled response: ${JSON.stringify(resp).slice(0, 100)}`);
 }
 
 httpServer.listen(HTTP_PORT, () => {
