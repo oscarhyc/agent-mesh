@@ -1,0 +1,19 @@
+{
+  "name": "@agent-mesh/mesh-tester",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/tester.ts",
+    "ping": "tsx src/tester.ts ping --all",
+    "health": "tsx src/tester.ts health"
+  },
+  "dependencies": {
+    "ws": "^8.18.0",
+    "@agent-mesh/shared": "file:../shared"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "@types/ws": "^8.5.13",
+    "typescript": "^5.7.2"
+  }
+}

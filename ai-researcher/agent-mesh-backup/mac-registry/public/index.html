@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agent Mesh — Registry Dashboard</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: monospace; background: #0d1117; color: #e6edf3; padding: 24px; }
+    h1 { font-size: 20px; margin-bottom: 16px; color: #58a6ff; }
+    .stats { display: flex; gap: 24px; margin-bottom: 24px; flex-wrap: wrap; }
+    .stat { background: #161b22; border: 1px solid #30363d; padding: 12px 16px; border-radius: 6px; min-width: 120px; }
+    .stat-label { font-size: 11px; color: #8b949e; text-transform: uppercase; letter-spacing: 0.05em; }
+    .stat-value { font-size: 28px; font-weight: bold; margin-top: 4px; }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; font-size: 11px; color: #8b949e; text-transform: uppercase; letter-spacing: 0.05em; padding: 8px 12px; border-bottom: 1px solid #30363d; }
+    td { padding: 10px 12px; border-bottom: 1px solid #21262d; font-size: 13px; }
+    tr:hover { background: #161b22; }
+    .status-idle { color: #3fb950; }
+    .status-busy { color: #d29922; }
+    .status-offline { color: #f85149; }
+    .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; }
+    .status-dot.idle { background: #3fb950; }
+    .status-dot.busy { background: #d29922; }
+    .status-dot.offline { background: #f85149; }
+    .refresh-note { margin-top: 16px; font-size: 11px; color: #484f58; }
+    #error { color: #f85149; margin-bottom: 16px; display: none; }
+  </style>
+</head>
+<body>
+  <h1>⚡ Agent Mesh — Registry</h1>
+  <div id="error"></div>
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-label">Workers Online</div>
+      <div class="stat-value" id="workers-count">—</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Total Tasks</div>
+      <div class="stat-value" id="total-tasks">0</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Uptime</div>
+      <div class="stat-value" id="uptime">—</div>
+    </div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Agent ID</th>
+        <th>Type</th>
+        <th>Host</th>
+        <th>Port</th>
+        <th>Load</th>
+        <th>Status</th>
+        <th>Last Heartbeat</th>
+      </tr>
+    </thead>
+    <tbody id="agents-body"></tbody>
+  </table>
+  <div class="refresh-note">Auto-refreshes every 5 seconds via WebSocket</div>
+
+  <script>
+    let startTime = Date.now();
+    let ws;
+
+    function connect() {
+      const protocol = location.protocol === "https:" ? "wss:" : "ws:";
+      ws = new WebSocket(`${protocol}//${location.hostname}:9000`);
+
+      ws.onopen = () => { hideError(); };
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          if (msg.result?.agents) renderAgents(msg.result.agents);
+        } catch {}
+      };
+      ws.onerror = () => showError("WebSocket connection failed");
+      ws.onclose = () => { setTimeout(connect, 5000); };
+    }
+
+    function requestAgents() {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ jsonrpc: "2.0", method: "discover", params: { capabilities: {}, limit: 100 }, id: Date.now() }));
+      }
+    }
+
+    function renderAgents(agents) {
+      const tbody = document.getElementById("agents-body");
+      const online = agents.filter(a => a.status !== "offline");
+      document.getElementById("workers-count").textContent = online.length;
+
+      const secs = Math.floor((Date.now() - startTime) / 1000);
+      const h = Math.floor(secs / 3600);
+      const m = Math.floor((secs % 3600) / 60);
+      const s = secs % 60;
+      document.getElementById("uptime").textContent = `${h}h ${m}m ${s}s`;
+
+      if (!agents.length) {
+        tbody.innerHTML = '<tr><td colspan="7" style="color:#484f58;text-align:center">No agents registered yet</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = agents.map(a => `
+        <tr>
+          <td>${esc(a.agentId)}</td>
+          <td>${esc(a.capabilities?.agentType ?? "—")}</td>
+          <td>${esc(a.host)}</td>
+          <td>${a.port}</td>
+          <td>${a.load ?? 0}</td>
+          <td><span class="status-dot ${a.status}"></span><span class="status-${a.status}">${(a.status ?? "?").toUpperCase()}</span></td>
+          <td>${a.lastHeartbeat ? new Date(a.lastHeartbeat).toLocaleTimeString() : "—"}</td>
+        </tr>
+      `).join("");
+    }
+
+    function esc(s) {
+      return (s ?? "—").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    }
+
+    function showError(msg) {
+      const el = document.getElementById("error");
+      el.textContent = msg;
+      el.style.display = "block";
+    }
+
+    function hideError() {
+      document.getElementById("error").style.display = "none";
+    }
+
+    connect();
+    setInterval(requestAgents, 5000);
+  </script>
+</body>
+</html>

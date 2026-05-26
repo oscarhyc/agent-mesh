@@ -1,0 +1,14 @@
+{
+  "id": "agent-mesh",
+  "enabledByDefault": true,
+  "name": "Agent Mesh Bridge",
+  "description": "Routes ACP sessions through the agent mesh to remote workers.",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "registry": { "type": "string", "default": "ws://192.168.1.206:9000" },
+      "defaultAgentType": { "type": "string", "default": "mock-hermes" }
+    }
+  }
+}

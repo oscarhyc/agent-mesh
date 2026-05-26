@@ -1,0 +1,19 @@
+{
+  "name": "@agent-mesh/registry",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "ws": "^8.18.0",
+    "@agent-mesh/shared": "file:../shared"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "@types/ws": "^8.5.13",
+    "typescript": "^5.7.2"
+  }
+}
